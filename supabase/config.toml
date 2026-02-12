@@ -1,0 +1,4 @@
+project_id = "uvxpacwbekosagfmfzha"
+
+[functions.parse-bill]
+verify_jwt = false

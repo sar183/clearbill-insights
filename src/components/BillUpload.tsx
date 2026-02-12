@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
-import { Upload, Edit3, Zap, Flame } from "lucide-react";
+import { Upload, Edit3, Zap, Flame, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillData, stateRates } from "@/data/mockData";
+import { useToast } from "@/hooks/use-toast";
 
 interface BillUploadProps {
   onBillData: (data: BillData) => void;
@@ -14,8 +15,47 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
   const [manualAmount, setManualAmount] = useState("");
   const [manualState, setManualState] = useState("Massachusetts");
   const [billType, setBillType] = useState<"electric" | "gas">("electric");
-  const [uploadNotice, setUploadNotice] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  const parseBillFile = async (file: File) => {
+    setIsParsing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/parse-bill`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: "Failed to parse bill" }));
+        throw new Error(err.error || "Failed to parse bill");
+      }
+
+      const data: BillData = await response.json();
+      onBillData(data);
+      toast({ title: "Bill parsed successfully!", description: `Detected ${data.surcharges?.length || 0} line items totaling $${data.totalAmount?.toFixed(2)}` });
+    } catch (err: any) {
+      console.error("Bill parsing error:", err);
+      toast({
+        title: "Could not parse bill",
+        description: err.message || "Please try manual entry instead.",
+        variant: "destructive",
+      });
+      setMode("manual");
+    } finally {
+      setIsParsing(false);
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -28,13 +68,13 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    setMode("manual");
-    setUploadNotice(true);
+    const file = e.dataTransfer.files?.[0];
+    if (file) parseBillFile(file);
   };
 
-  const handleFileChange = () => {
-    setMode("manual");
-    setUploadNotice(true);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) parseBillFile(file);
   };
 
   const handleManualSubmit = () => {
@@ -101,25 +141,32 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !isParsing && fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
-            dragActive
+            isParsing
+              ? "border-primary bg-primary/5 cursor-wait"
+              : dragActive
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/50 hover:bg-secondary/50"
           }`}
         >
           <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleFileChange} />
-          <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm font-medium text-foreground">Drop your bill here or click to browse</p>
-          <p className="text-xs text-muted-foreground mt-1">Accepts PDF and image files (JPG, PNG)</p>
+          {isParsing ? (
+            <>
+              <Loader2 className="w-10 h-10 text-primary mx-auto mb-3 animate-spin" />
+              <p className="text-sm font-medium text-foreground">Analyzing your bill with AI...</p>
+              <p className="text-xs text-muted-foreground mt-1">This may take a few seconds</p>
+            </>
+          ) : (
+            <>
+              <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">Drop your bill here or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-1">Accepts PDF and image files (JPG, PNG)</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
-          {uploadNotice && (
-            <div className="bg-accent/15 text-accent-foreground rounded-lg px-4 py-3 text-sm">
-              📋 Automatic bill parsing coming soon! For now, please enter your bill details below and we'll analyze the breakdown for you.
-            </div>
-          )}
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Bill Type</label>
