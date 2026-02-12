@@ -27,6 +27,7 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("state", manualState);
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/parse-bill`, {
         method: "POST",
@@ -135,6 +136,21 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
         </button>
       </div>
 
+      {/* State selector - shown in both modes */}
+      <div className="mb-4">
+        <label className="text-sm font-medium text-foreground mb-1.5 block">Your State</label>
+        <Select value={manualState} onValueChange={setManualState}>
+          <SelectTrigger className="w-full border border-border">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-popover border border-border z-50">
+            {stateRates.map((s) => (
+              <SelectItem key={s.state} value={s.state}>{s.state}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {mode === "upload" ? (
         <div
           onDragEnter={handleDrag}
@@ -202,19 +218,6 @@ const BillUpload = ({ onBillData }: BillUploadProps) => {
                 />
               </div>
             </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1.5 block">State</label>
-            <Select value={manualState} onValueChange={setManualState}>
-              <SelectTrigger className="w-full border border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border border-border z-50">
-                {stateRates.map((s) => (
-                  <SelectItem key={s.state} value={s.state}>{s.state}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <button
             onClick={handleManualSubmit}

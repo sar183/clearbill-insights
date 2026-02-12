@@ -31,6 +31,7 @@ serve(async (req) => {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const manualText = formData.get("text") as string | null;
+    const userState = formData.get("state") as string | null;
 
     let userContent: any[];
 
@@ -163,6 +164,11 @@ Rules:
         ...s,
         color: colors[i % colors.length],
       }));
+    }
+
+    // Override state if user provided one
+    if (userState) {
+      parsed.state = userState;
     }
 
     return new Response(JSON.stringify(parsed), {
