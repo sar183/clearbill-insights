@@ -9,10 +9,14 @@ import CandidateComparison from "@/components/CandidateComparison";
 import StateComparison from "@/components/StateComparison";
 import ChatInterface from "@/components/ChatInterface";
 import PrivacyPolicy from "@/components/PrivacyPolicy";
+import { useStateData } from "@/hooks/useStateData";
 
 const Index = () => {
   const [billData, setBillData] = useState<BillData | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [selectedState, setSelectedState] = useState("Massachusetts");
+
+  const { policies, elections, loading } = useStateData(billData?.state || selectedState);
 
   const dashboardRef = useRef<HTMLDivElement>(null);
   const policyRef = useRef<HTMLDivElement>(null);
@@ -29,6 +33,13 @@ const Index = () => {
     refs[section]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleBillData = (data: BillData) => {
+    setBillData(data);
+    if (data.state) setSelectedState(data.state);
+  };
+
+  const currentState = billData?.state || selectedState;
+
   return (
     <div className="min-h-screen bg-background">
       <Header onPrivacyClick={() => setPrivacyOpen(true)} onSectionClick={scrollTo} />
@@ -42,7 +53,7 @@ const Index = () => {
         <div ref={dashboardRef}>
           {!billData ? (
             <div className="max-w-xl mx-auto">
-              <BillUpload onBillData={setBillData} />
+              <BillUpload onBillData={handleBillData} />
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -79,12 +90,12 @@ const Index = () => {
 
         {/* Policy Tracker */}
         <div ref={policyRef}>
-          <PolicyFeed />
+          <PolicyFeed policies={policies} loading={loading} state={currentState} />
         </div>
 
         {/* Elections */}
         <div ref={electionsRef}>
-          <CandidateComparison />
+          <CandidateComparison elections={elections} loading={loading} state={currentState} />
         </div>
 
         {/* State Comparison (full width when no bill) */}
