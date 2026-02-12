@@ -7,13 +7,23 @@ interface BillBreakdownProps {
 }
 
 const BillBreakdown = ({ bill }: BillBreakdownProps) => {
-  const surchargeTotal = bill.surcharges.reduce((sum, s) => sum + s.amount, 0);
-  const utilizationPercent = ((bill.utilization / bill.totalAmount) * 100).toFixed(1);
+  const rawSurchargeTotal = bill.surcharges.reduce((sum, s) => sum + s.amount, 0);
+  const rawTotal = bill.utilization + rawSurchargeTotal;
+
+  // If parsed amounts don't add up to totalAmount, scale them proportionally
+  const needsNormalization = Math.abs(rawTotal - bill.totalAmount) > 0.5;
+  const scale = needsNormalization && rawTotal > 0 ? bill.totalAmount / rawTotal : 1;
+
+  const utilization = bill.utilization * scale;
+  const surcharges = bill.surcharges.map((s) => ({ ...s, amount: s.amount * scale }));
+  const surchargeTotal = surcharges.reduce((sum, s) => sum + s.amount, 0);
+
+  const utilizationPercent = ((utilization / bill.totalAmount) * 100).toFixed(1);
   const surchargePercent = ((surchargeTotal / bill.totalAmount) * 100).toFixed(1);
 
   const chartData = [
-    { name: "Energy Usage", value: bill.utilization, color: "hsl(174, 62%, 40%)" },
-    ...bill.surcharges.map((s) => ({ name: s.name, value: s.amount, color: s.color })),
+    { name: "Energy Usage", value: utilization, color: "hsl(174, 62%, 40%)" },
+    ...surcharges.map((s) => ({ name: s.name, value: s.amount, color: s.color })),
   ];
 
   return (
@@ -37,7 +47,7 @@ const BillBreakdown = ({ bill }: BillBreakdownProps) => {
           <p className="text-xs text-muted-foreground mt-1">Total Bill</p>
         </div>
         <div className="bg-secondary rounded-xl p-4 text-center">
-          <p className="text-2xl font-display font-bold text-primary">${bill.utilization.toFixed(2)}</p>
+          <p className="text-2xl font-display font-bold text-primary">${utilization.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground mt-1">Actual Usage</p>
         </div>
         <div className="bg-secondary rounded-xl p-4 text-center">
@@ -91,9 +101,9 @@ const BillBreakdown = ({ bill }: BillBreakdownProps) => {
           <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: "hsl(174, 62%, 40%)" }} />
             <span className="text-sm text-foreground flex-1">Energy Usage</span>
-            <span className="text-sm font-semibold text-foreground">${bill.utilization.toFixed(2)}</span>
+            <span className="text-sm font-semibold text-foreground">${utilization.toFixed(2)}</span>
           </div>
-          {bill.surcharges.map((s, i) => (
+          {surcharges.map((s, i) => (
             <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
               <span className="text-sm text-foreground flex-1">{s.name}</span>
